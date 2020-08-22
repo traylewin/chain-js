@@ -11,6 +11,7 @@ import {
   isNullOrEmpty,
   notImplemented,
   uint8ArraysAreEqual,
+  notSupported,
 } from '../../helpers'
 import { AlgorandChainState } from './algoChainState'
 import {
@@ -164,6 +165,10 @@ export class AlgorandTransaction implements Transaction {
       return null
     }
     return [action]
+  }
+
+  public async resourcesRequired(): Promise<number> {
+    return notSupported('')
   }
 
   /** Private property for the Algorand action - uses _actionHelper */

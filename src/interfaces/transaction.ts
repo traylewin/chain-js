@@ -28,11 +28,19 @@ export interface Transaction {
   missingSignatures: any[]
   /** An array of the unique set of authorizations needed for all actions in transaction */
   requiredAuthorizations: any[]
+
+  resourcesRequired: any
   /** Signatures attached to transaction */
   signatures: string[]
   /** The transaction data needed to create a transaction signature.
    *  It should be signed with a private key. */
   signBuffer: any
+
+  // supportsFee: boolean
+  // estimatedCost: string
+  // actualCost: string
+
+  // maxFeeIncreasePercentage: number
   /** Whether the chain supports signing a transactions using a multi-signature account */
   supportsMultisigTransaction: boolean
   /** Add an action to the array of attached actions.
@@ -49,6 +57,8 @@ export interface Transaction {
   /** Internally creates Raw Transaction data.
    *  Requires at least one action set. Must be called before sign() */
   prepareToBeSigned(): Promise<void>
+
+  // setDesiredFee(fee: string): void
   /** Set the body of the transaction using raw (hex) transaction data
    *  This is one of the ways to set the actions for the transaction */
   setFromRaw(raw: any): Promise<void>
@@ -57,6 +67,8 @@ export interface Transaction {
   send(waitForConfirm?: ConfirmType, communicationSettings?: any): Promise<TransactionResult>
   /** Sign the transaction body with private key(s) and add to attached signatures */
   sign(privateKeys: PrivateKey[]): Promise<void>
+
+  // suggestedFee(priority: string): Promise<string>
   /** JSON representation of transaction data */
   toJson(): ConfirmType.None
   /** Verifies that all accounts and permisison for actions exist on chain.

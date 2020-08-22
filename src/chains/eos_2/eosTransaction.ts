@@ -13,7 +13,7 @@ import {
   EosPrivateKey,
   EosTxOptions,
 } from './models'
-import { isAString, isAnObject, isNullOrEmpty, getUniqueValues } from '../../helpers'
+import { isAString, isAnObject, isNullOrEmpty, getUniqueValues, notSupported } from '../../helpers'
 import { throwAndLogError, throwNewError } from '../../errors'
 import { ConfirmType } from '../../models'
 import { Transaction } from '../../interfaces'
@@ -95,6 +95,10 @@ export class EosTransaction implements Transaction {
   /** TODO: Implement support for eos multi-sig transactions */
   get supportsMultisigTransaction(): boolean {
     return false
+  }
+
+  public async resourcesRequired(): Promise<number> {
+    return notSupported('')
   }
 
   /** Generate the raw transaction body using the actions attached
