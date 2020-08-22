@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Transaction as EthereumJsTx } from 'ethereumjs-tx'
-import { bufferToInt, privateToAddress, bufferToHex, publicToAddress } from 'ethereumjs-util'
+import { bufferToInt, privateToAddress, bufferToHex, publicToAddress, BN } from 'ethereumjs-util'
 import { EMPTY_HEX } from './ethConstants'
 import { EthereumChainState } from './ethChainState'
 import { Transaction } from '../../interfaces'
@@ -31,6 +31,8 @@ import {
   toEthereumAddress,
   isValidEthereumAddress,
   toGweiFromWei,
+  toEthUnit,
+  toWei,
 } from './helpers'
 import { EthereumActionHelper } from './ethAction'
 
@@ -59,6 +61,14 @@ export class EthereumTransaction implements Transaction {
 
   private _isValidated: boolean
 
+  private _feeIncreasePercentage: number
+
+  private _desiredFee: string
+
+  private _estimatedGas: number
+
+  private _actualCost: string
+
   constructor(chainState: EthereumChainState, options?: EthereumTransactionOptions) {
     this._chainState = chainState
     this._options = options
@@ -84,8 +94,7 @@ export class EthereumTransaction implements Transaction {
         'Transaction has not been prepared to be signed yet. Call prepareToBeSigned() or use setFromRaw(). Use transaction.hasRaw to check before using transaction.raw',
       )
     }
-    const { nonce, gasLimit, gasPrice, to, value, data, v, r, s } = this._raw
-    return { nonce, gasLimit, gasPrice, to, value, data: toEthereumTxData(data), v, r, s }
+    return this._raw
   }
 
   /** Whether the raw transaction body has been set or prepared */
@@ -115,23 +124,15 @@ export class EthereumTransaction implements Transaction {
     const trxOptions = { chain: chainName, hardfork: hardFork }
     const { nonce = null } = this._options || {}
     let { gasPrice = null, gasLimit = null } = this._options || {}
-    const { to, value, data } = this._actionHelper.raw
     // 0.000000001 * ... is the gasPrice multiplayer currently hardcoded, ready to be replaced by an optional parameter
     // Convert gas price returned from getGasPrice to Gwei
-    gasPrice = isNullOrEmpty(gasPrice) ? toGweiFromWei(await this._chainState.getGasPrice()) : gasPrice
+    gasPrice = isNullOrEmpty(gasPrice)
+      ? toGweiFromWei(new BN(this._chainState.chainInfo.nativeInfo.medianGasPrice))
+      : gasPrice
+    console.log('GASPRICE: ', gasPrice)
     gasLimit = isNullOrEmpty(gasLimit) ? (await this._chainState.getBlock(EthereumBlockType.Latest)).gasLimit : gasLimit
-    // EthereumJsTx  expects gasPrice and gasLimit in Gwei
-    const trxBody = { nonce, to, value, data, gasPrice, gasLimit }
-    this._raw = new EthereumJsTx(trxBody, trxOptions)
-    this.setHeaderFromRaw()
+    this._raw = new EthereumJsTx({ ...this._actionHelper.raw, gasPrice, gasLimit }, trxOptions)
     this.setSignBuffer()
-  }
-
-  /** Extract header from raw transaction body */
-  private setHeaderFromRaw(): void {
-    this.assertHasRaw()
-    const { nonce, gasPrice, gasLimit } = this._raw
-    this._header = { nonce, gasPrice, gasLimit }
   }
 
   /** Set the body of the transaction using Hex raw transaction data */
@@ -140,15 +141,8 @@ export class EthereumTransaction implements Transaction {
     this.assertNoSignatures()
     if (raw) {
       const { chain, hardfork } = this._options
-      let { gasPrice, gasLimit } = raw
-      gasPrice = ethereumTrxArgIsNullOrEmpty(gasPrice) ? 1 * (await this._chainState.getGasPrice()) : gasPrice
-      gasLimit = ethereumTrxArgIsNullOrEmpty(gasLimit)
-        ? (await this._chainState.getBlock(EthereumBlockType.Latest)).gasLimit
-        : gasLimit
-      this._raw = new EthereumJsTx({ ...raw, gasLimit, gasPrice }, { chain, hardfork })
-      const { txAction, txHeader } = this.groupActionData(this._raw)
-      this._header = txHeader
-      this._actionHelper = new EthereumActionHelper(txAction)
+      this._raw = new EthereumJsTx(raw, { chain, hardfork })
+      this._actionHelper = new EthereumActionHelper(raw)
       this._isValidated = false
       this.setSignBuffer()
     }
@@ -161,12 +155,70 @@ export class EthereumTransaction implements Transaction {
     this._signBuffer = this._raw.hash(false)
   }
 
-  /** organize the transaction header and actions data */
-  private groupActionData(
-    rawTransaction: EthereumJsTx,
-  ): { txAction: EthereumTransactionAction; txHeader: EthereumTransactionHeader } {
-    const { nonce, gasLimit, gasPrice, to, value, data } = rawTransaction
-    return { txAction: { to, value, data: toEthereumTxData(data) }, txHeader: { nonce, gasLimit, gasPrice } }
+  public async resourcesRequired(): Promise<number> {
+    let gas: number
+    try {
+      const input = {
+        to: ethereumTrxArgIsNullOrEmpty(this.action.to) ? null : this.action.to,
+        value: ethereumTrxArgIsNullOrEmpty(this.action.value) ? 0 : this.action.value,
+        data: ethereumTrxArgIsNullOrEmpty(this.action.data) ? null : this.action.data,
+        chain: '',
+        fork: 'istanbul',
+      }
+      gas = await this._chainState.web3.eth.estimateGas(input)
+      this._estimatedGas = gas
+    } catch (err) {
+      throwNewError(`ResourcesRequired failure. ${err}`)
+    }
+    return gas
+  }
+
+  public get supportsFee(): boolean {
+    return true
+  }
+
+  public async suggestedFee(priority: string = 'average'): Promise<string> {
+    const gasPriceString = await this._chainState.currentFeeUnitPrice()
+    let gasPriceBN = new BN(gasPriceString)
+    switch (priority) {
+      case 'slow':
+        gasPriceBN = gasPriceBN.muln(0.96)
+        break
+      case 'fast':
+        gasPriceBN = gasPriceBN.muln(1.12)
+        break
+      default:
+        break
+    }
+    const totalFee = gasPriceBN.muln(this._estimatedGas)
+    return totalFee.toString(10)
+  }
+
+  public async setDesiredFee(fee: string) {
+    const resourcesRequired = await this.resourcesRequired()
+    const totalFeeBN = new BN(fee, 10)
+    const gasPrice = totalFeeBN.divn(resourcesRequired)
+    this._options.gasPrice = gasPrice
+    this._options.gasLimit = resourcesRequired * (1 + this.maxFeeIncreasePercentage / 100)
+  }
+
+  public get maxFeeIncreasePercentage(): number {
+    return this._feeIncreasePercentage
+  }
+
+  public set maxFeeIncreasePercentage(percentage: number) {
+    if (percentage < 0) {
+      throwNewError('maxFeeIncreasePercentage can not be a negative value')
+    }
+    this._feeIncreasePercentage = percentage
+  }
+
+  public get actualCost(): string {
+    return this._actualCost
+  }
+
+  public get estimatedCost(): string {
+    return ''
   }
 
   /** Ethereum transaction action (transfer & contract functions)
@@ -183,7 +235,11 @@ export class EthereumTransaction implements Transaction {
   /** Private property for the Ethereum contract action - uses _actionHelper */
   private get action(): EthereumTransactionAction {
     if (!this?._actionHelper?.raw) return null
-    const action = { ...this._actionHelper?.raw, contract: this._actionHelper?.contract }
+    const action = {
+      ...this._actionHelper?.hex,
+      data: toEthereumTxData(this._actionHelper?.hex.data),
+      contract: this._actionHelper?.contract,
+    }
     return action
   }
 
@@ -239,6 +295,12 @@ export class EthereumTransaction implements Transaction {
     this.assertHasRaw()
     if (!this._isValidated) {
       throwNewError('Transaction not validated. Call transaction.validate() first.')
+    }
+  }
+
+  private assertIsFeeSet(): void {
+    if (isNullOrEmpty(this._feeIncreasePercentage) || isNullOrEmpty(this._desiredFee)) {
+      throwNewError('DesiredFee and MaxFeeIncreasePercentage has to provided by options or set manually')
     }
   }
 
@@ -394,7 +456,7 @@ export class EthereumTransaction implements Transaction {
 
   /** Broadcast a signed transaction to the chain
    *  waitForConfirm specifies whether to wait for a transaction to appear in a block before returning */
-  public send(
+  public async send(
     waitForConfirm: ConfirmType = ConfirmType.None,
     communicationSettings?: EthereumChainSettingsCommunicationSettings,
   ): Promise<any> {
@@ -403,11 +465,15 @@ export class EthereumTransaction implements Transaction {
     // Serialize the entire transaction for sending to chain (prepared transaction that includes signatures { v, r , s })
     const signedTransaction = this._raw.serialize()
 
-    return this._chainState.sendTransaction(
+    const response = await this._chainState.sendTransaction(
       `0x${signedTransaction.toString('hex')}`,
       waitForConfirm,
       communicationSettings,
     )
+
+    this._actualCost = this.raw.gasPrice.toString('hex')
+
+    return response
   }
 
   // helpers
