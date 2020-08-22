@@ -2,6 +2,7 @@ import { BN } from 'ethereumjs-util'
 import BigNumber from 'bignumber.js'
 import { ChainDateBrand, ChainEntityNameBrand, ChainSymbolBrand, EncryptedDataString } from '../../../models'
 import { EncryptionOptions, EthereumPrivateKey, EthereumPublicKey } from './cryptoModels'
+import { EthereumTxPriority } from './transactionModels'
 
 /** Category of chain functions - useful in error mapping */
 export enum ChainFunctionCategory {
@@ -21,11 +22,27 @@ export enum EthereumBlockType {
 /** Chain configuation for creating a new chain connection and sending transaction */
 export type EthereumChainSettings = {
   chainForkType?: EthereumChainForkType
+  txPriority: EthereumTxPriority
+  maxFeeIncreasePercentage?: number
 }
 
 export type EthereumChainForkType = {
   chainName: string
   hardFork: string
+}
+
+export type EthereumChainInfo = {
+  headBlockNumber: number
+  headBlockTime: Date
+  version: string
+  nativeInfo: EthereumNativeChainInfo
+}
+
+export type EthereumNativeChainInfo = {
+  chainId: number
+  gasLimit: number
+  gasUsed: number
+  medianGasPrice: string
 }
 
 /** Chain urls and related details used to connect to chain */
@@ -71,7 +88,7 @@ export type EthereumString = {
 }
 
 // similar to ethereum-js BufferLike but also includes string
-export type EthereumValue = string | number | Buffer | BN
+export type EthereumMultiValue = string | number | Buffer | BN
 
 /** Ethereum value units */
 // See: https://www.languagesandnumbers.com/articles/en/ethereum-ether-units

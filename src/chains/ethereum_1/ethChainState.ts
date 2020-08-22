@@ -18,6 +18,7 @@ import {
   EthereumSymbol,
   EthereumTxResult,
   EthereumTxChainResponse,
+  EthereumChainInfo,
 } from './models'
 import { ensureHexPrefix, bigNumberToString } from './helpers'
 import { erc20Abi } from './templates/abis/erc20Abi'
@@ -31,7 +32,7 @@ export class EthereumChainState {
 
   private _activeEndpoint: EthereumChainEndpoint
 
-  private _chainInfo: ChainInfo
+  private _chainInfo: EthereumChainInfo
 
   private _chainSettings: EthereumChainSettings
 
@@ -54,7 +55,7 @@ export class EthereumChainState {
   /** * Return chain ID */
   public get chainId(): string {
     this.assertIsConnected()
-    return this._chainInfo?.nativeInfo?.chain_id
+    return this._chainInfo?.nativeInfo?.chainId.toString()
   }
 
   /** Return chain info - e.g. head block number */
@@ -116,14 +117,16 @@ export class EthereumChainState {
   public async getChainInfo(): Promise<ChainInfo> {
     const info = await this._web3.eth.getBlock(EthereumBlockType.Latest)
     const { gasLimit, gasUsed, number, timestamp } = info
+    const chainId = await this._web3.eth.getChainId()
     try {
       const nodeInfo = await this._web3.eth.getNodeInfo()
+      const medianGasPrice = await this.currentFeeUnitPrice()
       this._chainInfo = {
         headBlockNumber: number,
         headBlockTime: new Date(timestamp),
         // Node information contains version example: 'Geth/v1.9.9-omnibus-e320ae4c-20191206/linux-amd64/go1.13.4'
         version: nodeInfo,
-        nativeInfo: { gasLimit, gasUsed },
+        nativeInfo: { chainId, gasLimit, gasUsed, medianGasPrice },
       }
       return this._chainInfo
     } catch (error) {
@@ -154,10 +157,9 @@ export class EthereumChainState {
   }
 
   /** Retrieve a the current price of gas from the chain */
-  public async getGasPrice(): Promise<number> {
+  public async currentFeeUnitPrice(): Promise<string> {
     try {
-      this.assertIsConnected()
-      const gasPrice = parseInt(await this._web3.eth.getGasPrice(), 10)
+      const gasPrice = await this._web3.eth.getGasPrice()
       return gasPrice
     } catch (error) {
       const chainError = mapChainError(error, ChainFunctionCategory.ChainState)
