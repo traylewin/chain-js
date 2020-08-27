@@ -4,6 +4,7 @@
 import { JsonRpc } from 'eosjs'
 import { mapChainError } from '../algoErrors'
 import { ChainErrorType } from '../../../models'
+import { overspent } from './mockups/errors'
 
 describe('Error mapping', () => {
   const endpoint = 'http://localhost'
@@ -20,9 +21,7 @@ describe('Error mapping', () => {
     let actErrorType = null
     const expErrorType = ChainErrorType.TxExceededResources
 
-    const expReturn = {
-      message: 'Amount %d exceeds balance %d - deposits %d',
-    }
+    const expReturn = JSON.parse(overspent)
     fetchMock.once(JSON.stringify(expReturn), { status: 500 })
     try {
       await jsonRpc.get_abi('placeholder')

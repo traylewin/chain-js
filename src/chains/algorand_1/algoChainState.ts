@@ -231,6 +231,14 @@ export class AlgorandChainState {
       }
     } catch (error) {
       // ALGO TODO: map chain error
+      console.log('beforeIsgns')
+      // if (error instanceof Response) {
+      //   console.log('response')
+      // } else if (error instanceof Error) {
+      //   console.log('error')
+      // } else {
+      //   console.log('else')
+      // }
       throw error
     }
 

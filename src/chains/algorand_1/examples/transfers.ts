@@ -41,7 +41,7 @@ const composeAlgoPaymentParams: Partial<AlgorandActionPaymentParams> = {
   from: 'VBS2IRDUN2E7FJGYEKQXUAQX3XWL6UNBJZZJHB7CJDMWHUKXAGSHU5NXNQ',
   to: 'TF6PJW7VSEKD5AXYMUXF5YGMPDUWBJQRHH4PYJISFPXAMI27PGYHKLALDY',
   note: 'transfer memo',
-  amount: 1,
+  amount: 1000000000000,
 }
 
 // raw transaction ('blob' returned from the Algo SDK transaction sign function)
@@ -92,7 +92,7 @@ async function run() {
   try {
     await run()
   } catch (error) {
-    console.log('Error:', error)
+    console.log('Error:', JSON.stringify(error) )
   }
   process.exit()
 })()

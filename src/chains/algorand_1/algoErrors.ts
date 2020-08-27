@@ -16,7 +16,7 @@ export const ChainErrorRegExs: { [key: string]: string } = {
   AuthMissing: '(no sig|LogicSig.Logic empty)', // missing permission or key
   BlockDoesNotExist: '(no blocks|previous block|block round|block branch|MakeBlock|unrecognized blockhash)',
   DataReadFailedKeyDoesNotExist: 'key does not exist',
-  TokenBalanceTooLow: 'overflowed account balance',
+  TokenBalanceTooLow: '(overflowed account balance|overspent)',
   // TxConfirmFailure: 'TxConfirmFailure', UnmarshalMsg
   TxExceededResources: 'exceeds balance',
   MiscChainError: 'chain_type_exception',
@@ -45,7 +45,7 @@ export function mapChainError(error: RpcError | Error): ChainError {
     errorMessage = `${stringifySafe(error.json)}`
     errorJson = error.json
   } else if (error instanceof Error) {
-    errorSearchString = `${error.name} ${error.message}`
+    errorSearchString = `${error.name} ${error.message} ${error.message}`
     errorMessage = errorSearchString
   } else {
     errorSearchString = stringifySafe(error)
