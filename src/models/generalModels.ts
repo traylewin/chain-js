@@ -33,6 +33,8 @@ export type ChainEntityName = string & ChainEntityNameBrand
 export type ChainAsset = string & ChainAssetBrand
 /** Token or value symbol */
 export type ChainSymbol = string & ChainSymbolBrand
+/** Chain-specific Settings used to connect to chain */
+export type ChainSettings = any
 
 /** Supported chain types */
 export enum ChainType {

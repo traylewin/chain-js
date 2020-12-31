@@ -5,9 +5,11 @@ import { Account } from './account'
 import { Asymmetric, GenericCrypto } from '../crypto'
 import {
   ChainDate,
+  ChainEndpoint,
   ChainEntityName,
   ChainInfo,
   ChainSymbol,
+  ChainSettings,
   ChainType,
   CryptoCurve,
   KeyPair,
@@ -17,29 +19,27 @@ import {
   TransactionOptions,
 } from '../models'
 
-/** The Chain interface declares the operations that all concrete chains must implement */
-export interface Chain {
+/**
+ *  The Chain interface declares the operations that all concrete chains must implement
+ *  The members of the Chain class instance and its static properties are in seperate interfaces
+ *  This is due to Typescript not supporting a 'static' members of an interface
+ */
+
+// Members of the Chain implementation
+
+/** The ChainClass interface declares the class members that all concrete chains must implement */
+export interface IChainClass {
+  connect(): Promise<void>
+  /** Fetch balance for token (or native chain asset)
+   * If no value is provided for contract, some chains use the default token contract
+   * Returns a string to allow for large numbers */
   /** Return unique chain ID string */
   chainId: string
   /** Retrieve lastest chain info including head block number and time */
   chainInfo: ChainInfo
   /** Returns last datetime chain info was retrieved */
   isConnected: boolean
-  /** Returns chain type enum - resolves to chain family as a string e.g. 'eos' */
-  chainType: ChainType
-  /** Returns chain plug-in name */
-  description: string
-  /** Returns the native (default) asset symbol for the chain and default token address (if any) */
-  nativeToken: { defaultUnit: string; symbol: ChainSymbol; tokenAddress: any }
   /** Connect to chain endpoint to verify that it is operational and to get latest block info */
-  connect(): Promise<void>
-  /** Compose an object for a chain contract action */
-  composeAction(chainActionType: any, args: any): Promise<any>
-  /** Decompose a transaction action to determine its standard action type (if any) and retrieve its data */
-  decomposeAction(action: any): Promise<{ chainActionType: any; args: any; partial?: boolean }[]>
-  /** Fetch balance for token (or native chain asset)
-   * If no value is provided for contract, some chains use the default token contract
-   * Returns a string to allow for large numbers */
   fetchBalance(account: ChainEntityName, symbol: ChainSymbol, tokenAddress?: any): Promise<{ balance: string }>
   /** Fetch data from an on-chain contract table */
   fetchContractData(
@@ -65,6 +65,26 @@ export interface Chain {
     /** Return a chain Transaction object used to compose and send transactions */
     Transaction(options?: TransactionOptions): Transaction
   }
+}
+
+/** The ChainStatic interface declares all the STATIC class members that all concrete chains must implement */
+export interface IChainStatic {
+  /** This new() is required to instantiate the class when the static interface is implemented
+   *  See: https://stackoverflow.com/questions/13955157/how-to-define-static-property-in-typescript-interface/59134002#59134002
+   */
+  // new properties must match constructor in IChainClass
+  new (endpoints: ChainEndpoint[], settings?: ChainSettings): IChainClass
+
+  /** Returns chain type enum - resolves to chain family as a string e.g. 'eos' */
+  chainType: ChainType
+  /** Returns chain plug-in name */
+  description: string
+  /** Returns the native (default) asset symbol for the chain and default token address (if any) */
+  nativeToken: { defaultUnit: string; symbol: ChainSymbol; tokenAddress: any }
+  /** Compose an object for a chain contract action */
+  composeAction(chainActionType: any, args: any): Promise<any>
+  /** Decompose a transaction action to determine its standard action type (if any) and retrieve its data */
+  decomposeAction(action: any): Promise<{ chainActionType: any; args: any; partial?: boolean }[]>
 
   // Chain Crypto functions
   /** Primary cryptography curve used by this chain */
@@ -90,6 +110,14 @@ export interface Chain {
     publicKey: PublicKey,
     options?: any,
   ): Promise<Asymmetric.AsymmetricEncryptedDataString>
+  /** Unwraps an object produced by encryptWithPublicKeys() - resulting in the original ecrypted string
+   *  each pass uses a private keys from privateKeys array param
+   *  put the keys in the same order as public keys provided to encryptWithPublicKeys() - they will be applied in the right (reverse) order
+   *  The result is the decrypted string */
+  decryptWithPrivateKeys(
+    encrypted: Asymmetric.AsymmetricEncryptedDataString,
+    privateKeys: PrivateKey[],
+  ): Promise<string>
   /** Encrypts a string by wrapping it with successive asymmetric encryptions with multiple public key
    *  Operations are performed in the order that the public keys appear in the array
    *  Only the last item has the final, wrapped, ciphertext
@@ -99,14 +127,6 @@ export interface Chain {
     publicKeys: PublicKey[],
     options?: any,
   ): Promise<Asymmetric.AsymmetricEncryptedDataString>
-  /** Unwraps an object produced by encryptWithPublicKeys() - resulting in the original ecrypted string
-   *  each pass uses a private keys from privateKeys array param
-   *  put the keys in the same order as public keys provided to encryptWithPublicKeys() - they will be applied in the right (reverse) order
-   *  The result is the decrypted string */
-  decryptWithPrivateKeys(
-    encrypted: Asymmetric.AsymmetricEncryptedDataString,
-    privateKeys: PrivateKey[],
-  ): Promise<string>
   /** Generates and returns a new public/private key pair */
   generateKeyPair(): Promise<KeyPair>
   /** Returns a public key given a signature and the original data was signed */

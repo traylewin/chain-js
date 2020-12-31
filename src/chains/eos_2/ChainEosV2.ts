@@ -8,11 +8,10 @@ import {
   CryptoCurve,
   PrivateKey,
   PublicKey,
-  Signature,
   TransactionOptions,
 } from '../../models'
 import { NATIVE_CHAIN_TOKEN_SYMBOL, NATIVE_CHAIN_TOKEN_ADDRESS } from './eosConstants'
-import { Chain } from '../../interfaces'
+import { IChainStatic } from '../../interfaces'
 import { ChainError, throwNewError } from '../../errors'
 import * as eoscrypto from './eosCrypto'
 import { EosChainState } from './eosChainState'
@@ -48,10 +47,14 @@ import {
 } from './models'
 import { Asymmetric } from '../../crypto'
 
+// DEVELOPER NOTE: The implementation of this class works around Typescripts limitation of not having a static member of an interface
+// based on this approach - https://stackoverflow.com/questions/13955157/how-to-define-static-property-in-typescript-interface/59134002#59134002
+
 /** Provides support for the EOS blockchain
  *  Provides EOS-specific implementations of the Chain interface
  *  Also includes some features only available on this platform */
-class ChainEosV2 implements Chain {
+const ChainEosV2: IChainStatic = class ChainEosV2 {
+  // class ChainEosV2 implements IChainClass, static IChainStatic {
   private _endpoints: EosChainEndpoint[]
 
   private _settings: EosChainSettings
@@ -82,13 +85,9 @@ class ChainEosV2 implements Chain {
     return this._chainState.chainInfo
   }
 
-  /** Returns chain native token symbol and default token contract address */
-  public get nativeToken(): { defaultUnit: string; symbol: EosSymbol; tokenAddress: EosEntityName } {
-    return {
-      defaultUnit: NATIVE_CHAIN_TOKEN_SYMBOL, // EOS doesnt use a seperate unit for the token - just returning the EOS symbol
-      symbol: toEosSymbol(NATIVE_CHAIN_TOKEN_SYMBOL),
-      tokenAddress: toEosEntityName(NATIVE_CHAIN_TOKEN_ADDRESS),
-    }
+  /** Whether any info has been retrieved from the chain */
+  public get isConnected(): boolean {
+    return this._chainState?.isConnected
   }
 
   /** Get the token balance for an account from the chain
@@ -97,7 +96,7 @@ class ChainEosV2 implements Chain {
   public async fetchBalance(
     account: EosEntityName,
     symbol: EosSymbol,
-    tokenAddress: EosEntityName = this.nativeToken.tokenAddress,
+    tokenAddress: EosEntityName = ChainEosV2.nativeToken.tokenAddress,
   ): Promise<{ balance: string }> {
     return this._chainState.fetchBalance(account, symbol, tokenAddress)
   }
@@ -129,14 +128,15 @@ class ChainEosV2 implements Chain {
     )
   }
 
-  /** Compose an object for a chain contract action */
-  public composeAction = async (actionType: ChainActionType, args: any): Promise<EosActionStruct> => {
-    return composeAction(actionType, args)
-  }
-
-  /** Decompose a contract action and return the action type (if any) and its data */
-  public decomposeAction = async (action: EosActionStruct): Promise<EosDecomposeReturn[]> => {
-    return decomposeAction(action)
+  public new = {
+    /** Returns a new chain Account object
+     * If an account name is provided, it will be fetched from the chain and loaded into the returned account object
+     * Note: Does NOT create a new account - to create an account, use new.CreateAccount */
+    Account: this.newAccount.bind(this),
+    /** Return a new CreateAccount object used to help with creating a new chain account */
+    CreateAccount: this.newCreateAccount.bind(this),
+    /** Return a chain Transaction object used to compose and send transactions */
+    Transaction: this.newTransaction.bind(this),
   }
 
   /** Returns a chain Account class
@@ -162,53 +162,76 @@ class ChainEosV2 implements Chain {
     return new EosTransaction(this._chainState, options)
   }
 
-  public new = {
-    /** Returns a new chain Account object
-     * If an account name is provided, it will be fetched from the chain and loaded into the returned account object
-     * Note: Does NOT create a new account - to create an account, use new.CreateAccount */
-    Account: this.newAccount.bind(this),
-    /** Return a new CreateAccount object used to help with creating a new chain account */
-    CreateAccount: this.newCreateAccount.bind(this),
-    /** Return a chain Transaction object used to compose and send transactions */
-    Transaction: this.newTransaction.bind(this),
+  // STATIC MEMBERS
+
+  /** Returns chain type enum - resolves to chain family as a string e.g. 'eos' */
+  // eslint-disable-next-line class-methods-use-this
+  public static get chainType(): ChainType {
+    return ChainType.EosV2
+  }
+
+  /** Returns chain plug-in name */
+  // eslint-disable-next-line class-methods-use-this
+  public static get description(): string {
+    return 'EOS 2.x Chain'
+  }
+
+  /** Returns chain native token symbol and default token contract address */
+  public static get nativeToken(): { defaultUnit: string; symbol: EosSymbol; tokenAddress: EosEntityName } {
+    return {
+      defaultUnit: NATIVE_CHAIN_TOKEN_SYMBOL, // EOS doesnt use a seperate unit for the token - just returning the EOS symbol
+      symbol: toEosSymbol(NATIVE_CHAIN_TOKEN_SYMBOL),
+      tokenAddress: toEosEntityName(NATIVE_CHAIN_TOKEN_ADDRESS),
+    }
+  }
+
+  /** Compose an object for a chain contract action */
+  public static composeAction = async (actionType: ChainActionType, args: any): Promise<EosActionStruct> => {
+    return composeAction(actionType, args)
+  }
+
+  /** Decompose a contract action and return the action type (if any) and its data */
+  public static decomposeAction = async (action: EosActionStruct): Promise<EosDecomposeReturn[]> => {
+    return decomposeAction(action)
   }
 
   // --------- Chain crytography functions */
   /** Primary cryptography curve used by this chain */
-  cryptoCurve: CryptoCurve.Secp256k1
+  public static cryptoCurve: CryptoCurve.Secp256k1
 
   /** Decrypts the encrypted value using a password, and optional parameters using AES algorithm and SHA256 hash function
    * Expects the encrypted value to be a stringified JSON object */
-  decryptWithPassword = eoscrypto.decryptWithPassword
+  public static decryptWithPassword = eoscrypto.decryptWithPassword
 
   /** Encrypts a string using a password and optional parameters using AES algorithm and SHA256 hash function
    * The returned, encrypted value is a stringified JSON object */
-  encryptWithPassword = eoscrypto.encryptWithPassword
+  public static encryptWithPassword = eoscrypto.encryptWithPassword
 
   /** Decrypts the encrypted value using a private key
    * The encrypted value is either a stringified JSON object or a JSON object
    * ... and must have been encrypted with the public key that matches the private ley provided */
-  decryptWithPrivateKey = eoscrypto.decryptWithPrivateKey
+  public static decryptWithPrivateKey = eoscrypto.decryptWithPrivateKey
 
   /** Encrypts a string using a public key
    * The encrypted result can be decrypted with the matching private key */
-  encryptWithPublicKey = eoscrypto.encryptWithPublicKey
+  public static encryptWithPublicKey = eoscrypto.encryptWithPublicKey
 
   /** Unwraps an object produced by encryptWithPublicKeys() - resulting in the original ecrypted string
    *  each pass uses a private keys from privateKeys array param
    *  put the keys in the same order as public keys provided to encryptWithPublicKeys() - they will be applied in the right (reverse) order
    *  The result is the decrypted string */
-  decryptWithPrivateKeys = eoscrypto.decryptWithPrivateKeys
+  public static decryptWithPrivateKeys = eoscrypto.decryptWithPrivateKeys
 
   /** Use assymmetric encryption with multiple public keys - wrapping with each
    *  Returns an array of results with the last one including the final cipertext
    *  Encrypts using publicKeys in the order they appear in the array */
-  encryptWithPublicKeys = eoscrypto.encryptWithPublicKeys
+  public static encryptWithPublicKeys = eoscrypto.encryptWithPublicKeys
+
+  /** Generates and returns a new public/private key pair */
+  public static generateKeyPair = eoscrypto.generateKeyPair
 
   /** Returns a public key given a signature and the original data was signed */
-
-  /** Returns a public key given a signature and the original data was signed */
-  public getPublicKeyFromSignature = (
+  public static getPublicKeyFromSignature = (
     signature: string | Buffer,
     data: string | Buffer,
     encoding: string,
@@ -216,132 +239,110 @@ class ChainEosV2 implements Chain {
     return eoscrypto.getPublicKeyFromSignature(signature, data, encoding) as PublicKey
   }
 
-  /** Generates and returns a new public/private key pair */
-  generateKeyPair = eoscrypto.generateKeyPair
+  /** Verifies that the value is a valid, stringified JSON asymmetric encryption result */
+  public static isAsymEncryptedDataString = Asymmetric.isAsymEncryptedDataString
 
   /** Verifies that the value is a valid, stringified JSON encryption result */
-  isSymEncryptedDataString = eoscrypto.isSymEncryptedDataString
-
-  /** Ensures that the value comforms to a well-formed stringified JSON encryption result */
-  toSymEncryptedDataString = eoscrypto.toSymEncryptedDataString
-
-  /** Verifies that the value is a valid, stringified JSON asymmetric encryption result */
-  isAsymEncryptedDataString = Asymmetric.isAsymEncryptedDataString
-
-  /** Ensures that the value comforms to a well-formed stringified JSON encryption result */
-  toAsymEncryptedDataString = Asymmetric.toAsymEncryptedDataString
+  public static isSymEncryptedDataString = eoscrypto.isSymEncryptedDataString
 
   /** Ensures that the value comforms to a well-formed private Key */
-  public isValidPrivateKey = (value: string): boolean => {
+  public static isValidPrivateKey = (value: string): boolean => {
     return !!isValidEosPrivateKey(value)
   }
 
   /** Ensures that the value comforms to a well-formed Eos private Key */
-  isValidEosPrivateKey = isValidEosPrivateKey
+  public static isValidEosPrivateKey = isValidEosPrivateKey
 
   /** Ensures that the value comforms to a well-formed public Key */
-  public isValidPublicKey = (value: string): boolean => {
+  public static isValidPublicKey = (value: string): boolean => {
     return !!isValidEosPublicKey(value)
   }
 
-  /** Ensures that the value comforms to a well-formed EOS public Key */
-  isValidEosPublicKey = isValidEosPublicKey
-
   /** Generate a signature given some data and a private key */
-  sign = eoscrypto.sign
-
-  /** Generates new owner and active key pairs (public and private)
-   *  Encrypts private keys with provided password and optional params
-   *  Returns: { publicKeys:{owner, active}, privateKeys:{owner, active}, privateKeysEncrypted:{owner, active} } */
-  generateNewAccountKeysWithEncryptedPrivateKeys = eoscrypto.generateNewAccountKeysAndEncryptPrivateKeys
+  public static sign = eoscrypto.sign
 
   /** Verify that the signed data was signed using the given key (signed with the private key for the provided public key) */
-  verifySignedWithPublicKey = eoscrypto.verifySignedWithPublicKey
-
-  // --------- Chain helper functions
+  public static verifySignedWithPublicKey = eoscrypto.verifySignedWithPublicKey
 
   /** Verifies that the value is a valid chain entity name (e.g. an account name) */
-  public isValidEntityName = (value: string): boolean => {
+  public static isValidEntityName = (value: string): boolean => {
     return !!isValidEosEntityName(value)
   }
 
   /** Verifies that the value is a valid EOS entity name (e.g. an account name) */
-  isValidEosEntityName = isValidEosEntityName
-
-  /** Verifies that the value is a valid EOS asset string */
-  isValidEosAsset = isValidEosAsset
+  public static isValidEosEntityName = isValidEosEntityName
 
   /** Verifies that the value is a valid chain date */
-  public isValidDate = (value: string): boolean => {
+  public static isValidDate = (value: string): boolean => {
     return !!isValidEosDate(value)
   }
 
+  /** Verifies that the value is a valid EOS asset string */
+  public static isValidEosAsset = isValidEosAsset
+
+  /** Ensures that the value comforms to a well-formed EOS public Key */
+  public static isValidEosPublicKey = isValidEosPublicKey
+
+  /** Generates new owner and active key pairs (public and private)
+   *  Encrypts private keys with provided password and optional params
+   *  Returns: { publicKeys:{owner, active}, privateKeys:{owner, active}, privateKeysEncrypted:{owner, active} } */
+  public static generateNewAccountKeysWithEncryptedPrivateKeys = eoscrypto.generateNewAccountKeysAndEncryptPrivateKeys
+
+  // --------- Chain helper functions
+
   /** Verifies that the value is a valid EOS date */
-  isValidEosDate = isValidEosDate
+  public static isValidEosDate = isValidEosDate
 
   /** Ensures that the value comforms to a well-formed EOS asset string */
-  toEosAsset = toEosAsset
+  public static toEosAsset = toEosAsset
 
   /** Ensures that the value comforms to a well-formed chain entity name (e.g. an account name) */
-  public toEntityName = (value: string): ChainEntityName => {
+  public static toEntityName = (value: string): ChainEntityName => {
     return toEosEntityName(value) as ChainEntityName
   }
 
   /** Ensures that the value comforms to a well-formed EOS entity name
    *  e.g. account, permission, or contract name */
-  toEosEntityName = toEosEntityName
+  public static toEosEntityName = toEosEntityName
 
   /** Ensures that the value comforms to a well-formed chain date string */
-  public toDate = (value: string | Date | EosDate): ChainDate => {
+  public static toDate = (value: string | Date | EosDate): ChainDate => {
     return toEosDate(value) as ChainDate
   }
 
   /** Ensures that the value comforms to a well-formed EOS date string */
-  toEosDate = toEosDate
+  public static toEosDate = toEosDate
 
   /** Ensures that the value comforms to a well-formed public Key */
-  public toPublicKey = (value: string): PublicKey => {
+  public static toPublicKey = (value: string): PublicKey => {
     return toEosPublicKey(value) as PublicKey
   }
 
   /** Ensures that the value comforms to a well-formed EOS public Key */
-  toEosPublicKey = toEosPublicKey
+  public static toEosPublicKey = toEosPublicKey
+
+  /** Ensures that the value comforms to a well-formed EOS private Key */
+  public static toEosPrivateKey = toEosPrivateKey
 
   /** Ensures that the value comforms to a well-formed private Key */
-  public toPrivateKey = (value: string): PrivateKey => {
+  public static toPrivateKey = (value: string): PrivateKey => {
     return toEosPrivateKey(value) as PrivateKey
   }
 
-  /** Ensures that the value comforms to a well-formed EOS private Key */
-  toEosPrivateKey = toEosPrivateKey
+  /** Ensures that the value comforms to a well-formed stringified JSON encryption result */
+  public static toAsymEncryptedDataString = Asymmetric.toAsymEncryptedDataString
+
+  /** Ensures that the value comforms to a well-formed stringified JSON encryption result */
+  public static toSymEncryptedDataString = eoscrypto.toSymEncryptedDataString
 
   /** Ensures that the value comforms to a well-formed EOS signature */
-  public toSignature = (value: string): Signature => {
-    return this.toEosSignature(value) as Signature
-  }
+  public static toSignature = toEosSignature
 
   /** Ensures that the value comforms to a well-formed EOS signature */
-  toEosSignature = toEosSignature
-
-  /** Returns chain type enum - resolves to chain family as a string e.g. 'eos' */
-  // eslint-disable-next-line class-methods-use-this
-  public get chainType(): ChainType {
-    return ChainType.EosV2
-  }
-
-  /** Returns chain plug-in name */
-  // eslint-disable-next-line class-methods-use-this
-  public get description(): string {
-    return 'EOS 2.x Chain'
-  }
-
-  /** Whether any info has been retrieved from the chain */
-  public get isConnected(): boolean {
-    return this._chainState?.isConnected
-  }
+  public static toEosSignature = toEosSignature
 
   /** Map error from chain into a well-known ChainError type */
-  public mapChainError = (error: RpcError | Error): ChainError => {
+  public static mapChainError = (error: RpcError | Error): ChainError => {
     return mapChainError(error)
   }
 
