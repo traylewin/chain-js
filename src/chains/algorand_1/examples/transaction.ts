@@ -62,7 +62,8 @@ const rawTransactionType2 = // has serialized UInt8Array
 
 async function run() {
   /** Create Algorand chain instance */
-  const algoTest = new ChainFactory().create(ChainType.AlgorandV1, algoTestnetEndpoints)
+  const chainSettings = { defaultTransactionSettings : { expireSeconds: 10}}
+  const algoTest = new ChainFactory().create(ChainType.AlgorandV1, algoTestnetEndpoints, chainSettings)
   await algoTest.connect()
   if (algoTest.isConnected) {
     console.log('Connected to %o', algoTest.chainId)
