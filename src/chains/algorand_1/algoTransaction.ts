@@ -614,9 +614,10 @@ export class AlgorandTransaction implements Transaction {
   private applyOptions(options: AlgorandTransactionOptions) {
     const { multiSigOptions, signerPublicKey } = options || {}
     let { expireSeconds, fee, flatFee } = options || {}
-    expireSeconds = expireSeconds ?? this._chainState?.chainSettings?.defaultTransactionSettings?.expireSeconds
-    fee = fee ?? this._chainState?.chainSettings?.defaultTransactionSettings?.fee
-    flatFee = flatFee ?? this._chainState?.chainSettings?.defaultTransactionSettings?.flatFee
+    const { defaultTransactionSettings } = this._chainState?.chainSettings || {}
+    expireSeconds = expireSeconds ?? defaultTransactionSettings?.expireSeconds
+    fee = fee ?? defaultTransactionSettings?.fee
+    flatFee = flatFee ?? defaultTransactionSettings?.flatFee
     this._options = { expireSeconds, fee, flatFee, multiSigOptions, signerPublicKey }
   }
 
