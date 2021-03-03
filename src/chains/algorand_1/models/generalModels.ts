@@ -40,7 +40,14 @@ export type AlgorandChainInfo = {
 
 /** Currently nothing is needed in algorand chain settings.
  * Once any such parameter is there, change the type from any to an object containing specific properties */
-export type AlgorandChainSettings = any
+export type AlgorandChainSettings = {
+  communicationSettings?: AlgorandChainSettingsCommunicationSettings
+  defaultTransactionSettings?: {
+    expireSeconds?: number
+    fee?: AlgorandValue
+    flatFee?: boolean
+  }
+}
 
 export type AlgorandChainSettingsCommunicationSettings = {
   blocksToCheck: number
