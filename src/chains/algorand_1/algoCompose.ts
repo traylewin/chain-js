@@ -72,7 +72,8 @@ export async function composeAction(
   let actionHelper = new AlgorandActionHelper(action)
   const chainTxHeaderParams: AlgorandChainTransactionParamsStruct =
     chainState.chainInfo?.nativeInfo?.transactionHeaderParams
-  actionHelper.applyCurrentTxHeaderParamsWhereNeeded(chainTxHeaderParams)
+  const transactionOptions = chainState?.chainSettings?.defaultTransactionSettings || {}
+  actionHelper.applyCurrentTxHeaderParamsWhereNeeded(chainTxHeaderParams, transactionOptions)
   // seperate-out the action param values (required by compose functions) from the suggestedParams (headers)
   const sdkEncodedActionParams: AlgorandTxActionSdkEncoded = composerFunction(
     actionHelper.paramsOnly,
