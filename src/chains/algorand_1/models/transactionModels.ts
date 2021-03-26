@@ -153,3 +153,7 @@ type AlgorandTxActionSharedFields = AlgorandTxHeaderParams & {
 export type AlgorandTransactionResources = {
   bytes: number
 }
+
+export enum AlgorandMultisigPluginType {
+  Native = 'native',
+}
