@@ -15,7 +15,7 @@ export enum AsymmetricEncryptedDataStringBrand {
 }
 
 export type ECDHKeyFormat = 'compressed' | 'uncompressed' | 'hybrid'
-export type CipherGCMTypes = crypto.CipherGCMTypes | 'aes-128-ecb' | 'sha256'
+export type CipherGCMTypes = crypto.CipherGCMTypes | 'aes-128-ecb' | 'sha256' | 'aes-256-ctr'
 export enum EciesCurveType {
   Secp256k1 = 'secp256k1',
   Ed25519 = 'ed25519',

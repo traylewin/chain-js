@@ -28,7 +28,7 @@ export function toSymEncryptedDataString(value: any): AesCrypto.AesEncryptedData
 }
 
 /** get uncompressed public key from EthereumPublicKey */
-export function uncompressPublicKey(publicKey: EthereumPublicKey): string {
+export function uncompressPublicKey(publicKey: string): string {
   // if already decompressed an not has trailing 04
   const cleanedPublicKey = removeHexPrefix(publicKey)
   const testBuffer = Buffer.from(cleanedPublicKey, 'hex')

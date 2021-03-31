@@ -1,9 +1,17 @@
 // This code from https://github.com/bin-y/standard-ecies
 // Implemention of ECIES specified in https://en.wikipedia.org/wiki/Integrated_Encryption_Scheme
-import crypto from 'crypto'
+import crypto, { Hash, Utf8AsciiLatin1Encoding } from 'crypto'
 import { decodeBase64 } from 'tweetnacl-util'
 import { ecdsaSign, ecdsaVerify } from 'secp256k1'
-import { byteArrayToHexString, createSha256Hash, isAString, isNullOrEmpty, utf8StringToHexString } from '../helpers'
+import { OPENSSL_VERSION_NUMBER } from 'constants'
+import {
+  bufferToUint8Array,
+  byteArrayToHexString,
+  createSha256Hash,
+  isAString,
+  isNullOrEmpty,
+  utf8StringToHexString,
+} from '../helpers'
 import { throwNewError } from '../errors'
 import { ensureEncryptedValueIsObject } from './genericCryptoHelpers'
 import {
@@ -69,12 +77,16 @@ function symmetricEncrypt(
   let cipher
   let useIv = iv
   if (iv === undefined) {
-    cipher = crypto.createCipher(cypherName, key as crypto.BinaryLike)
+    useIv = Buffer.alloc(16)
+    console.log('ENCRYPT IV: ', useIv)
+    cipher = crypto.createCipheriv(cypherName, key as crypto.CipherKey, useIv)
+    // cipher = crypto.createCipher(cypherName, key as crypto.BinaryLike, useIv)
   } else {
     if (iv === null) {
       // to support node 6.x
       useIv = emptyBuffer
     }
+    console.log('ENCRYPT IV: ', useIv)
     cipher = crypto.createCipheriv(cypherName, key as crypto.CipherKey, useIv)
   }
   const firstChunk = cipher.update(plaintext)
@@ -97,12 +109,30 @@ function symmetricDecrypt(
     if (iv === null) {
       // to support node 6.x
       useIv = emptyBuffer
+    } else if (cypherName === 'aes-256-ctr') {
+      useIv = Buffer.alloc(16)
     }
+    console.log('USED IV', useIv)
     cipher = crypto.createDecipheriv(cypherName, key as crypto.CipherKey, useIv)
   }
   const firstChunk = cipher.update(ciphertext)
   const secondChunk = cipher.final()
   return Buffer.concat([firstChunk, secondChunk])
+}
+
+function variableHash(size: number, data: string, inputEncoding: Utf8AsciiLatin1Encoding) {
+  // Generate 256-bit hash of data
+  const hash: Hash = crypto.createHash('sha256')
+  hash.update(data, inputEncoding)
+  const hashBuffer = hash.digest()
+  // Generate pseudorandom-random output that is `size` bytes
+  const output = Buffer.alloc(size)
+  output.fill(0)
+  // Encrypt a zero-filled buffer using the SHA-256 hash as the AES-256 key
+  const cipher = crypto.createCipher('aes256', hashBuffer)
+  const offset: number = output.write(cipher.update(output.toString('hex'), undefined, 'hex'), 'hex')
+  output.write(cipher.final('hex'), offset, 'binary')
+  return output
 }
 
 // KDF
@@ -148,6 +178,10 @@ function composeOptions(optionsIn: EciesOptions): EciesOptionsAsBuffers {
   if (newOptions.symmetricCypherType === undefined) {
     newOptions.symmetricCypherType = DefaultEciesOptions.symmetricCypherType
     ivIn = undefined // use options.iv to determine is the cypher in ecb mode
+  }
+
+  if (newOptions.symmetricCypherType === 'aes-256-ctr') {
+    ivIn = emptyBuffer.toString('hex').slice(0, 16)
   }
 
   // iv should be a Buffer or null or undefined - retain either undefined or null - used in symmetricEncrypt for diff examples
@@ -227,14 +261,27 @@ export function encryptWithPublicKey(
     useOptions?.curveType,
     useOptions?.keyFormat,
   )
+
+  const ephemBuffer = Buffer.from(ephemPublicKey, 'hex')
   // uses KDF to derive a symmetric encryption and a MAC keys:
   // Ke || Km = KDF(S || S1)
   const hash = hashMessage(
     useOptions.hashCypherType,
-    Buffer.concat([sharedSecret, useOptions.s1], sharedSecret.length + useOptions.s1.length),
+    Buffer.concat(
+      [sharedSecret, new Uint8Array(1), useOptions.s1, ephemBuffer],
+      sharedSecret.length + useOptions.s1.length + ephemBuffer.length + 1,
+    ),
   )
-  const encryptionKey = hash.slice(0, hash.length / 2)
-  const macKey = hash.slice(hash.length / 2)
+  const hash2 = hashMessage(
+    useOptions.hashCypherType,
+    Buffer.concat(
+      [sharedSecret, new Uint8Array(2), useOptions.s1, ephemBuffer],
+      sharedSecret.length + useOptions.s1.length + ephemBuffer.length + 1,
+    ),
+  )
+
+  const encryptionKey = hash
+  const macKey = hash2.slice(hash2.length / 2)
 
   // encrypts the message:
   // c = E(Ke; m);
@@ -248,12 +295,15 @@ export function encryptWithPublicKey(
     Buffer.concat([ciphertext, useOptions.s2], ciphertext.length + useOptions.s2.length),
   )
 
+  const halvedmac = mac.slice(0, mac.length / 2)
+
+  console.log('EPHEM<L: ', ephemPublicKey.toString())
   const result: AsymmetricEncryptedData = {
     iv: !isNullOrEmpty(useOptions?.iv) ? useOptions.iv.toString('hex') : null,
     publicKey,
     ephemPublicKey: Buffer.from(ephemPublicKey).toString('hex'),
     ciphertext: ciphertext.toString('hex'),
-    mac: Buffer.from(mac).toString('hex'),
+    mac: Buffer.from(halvedmac).toString('hex'),
   }
 
   const scheme = useOptions?.scheme || getDefaultScheme(useOptions?.curveType)
@@ -279,17 +329,34 @@ export function decryptWithPrivateKey(
     encryptedObject.ephemPublicKey,
     useOptions?.curveType,
   )
-
+  const ephemBuffer = Buffer.from(encryptedObject.ephemPublicKey, 'hex')
+  console.log('encryptedObject.ephemPublicKey: ', encryptedObject.ephemPublicKey)
+  console.log('ephemBuffer: ', ephemBuffer)
+  console.log('encryptedObject.ephemPublicKey: ', ephemBuffer)
   // derives keys the same way as Alice did:
   // Ke || Km = KDF(S || S1)
+  // const hash = hashMessage(
+  //   useOptions.hashCypherType,
+  //   Buffer.concat([sharedSecret, useOptions.s1], sharedSecret.length + useOptions.s1.length),
+  // )
   const hash = hashMessage(
     useOptions.hashCypherType,
-    Buffer.concat([sharedSecret, useOptions.s1], sharedSecret.length + useOptions.s1.length),
+    Buffer.concat(
+      [sharedSecret, new Uint8Array(1), useOptions.s1, ephemBuffer],
+      sharedSecret.length + useOptions.s1.length + ephemBuffer.length + 1,
+    ),
+  )
+  const hash2 = hashMessage(
+    useOptions.hashCypherType,
+    Buffer.concat(
+      [sharedSecret, new Uint8Array(2), useOptions.s1, ephemBuffer],
+      sharedSecret.length + useOptions.s1.length + ephemBuffer.length + 1,
+    ),
   )
   // Ke
-  const encryptionKey = hash.slice(0, hash.length / 2)
+  const encryptionKey = hash
   // Km
-  const macKey = hash.slice(hash.length / 2)
+  const macKey = hash2.slice(hash2.length / 2)
 
   // uses MAC to check the tag
   const keyTag = macMessage(
@@ -297,16 +364,17 @@ export function decryptWithPrivateKey(
     macKey,
     Buffer.concat([cipherText, useOptions.s2], cipherText.length + useOptions.s2.length),
   )
+  const halvedmac = keyTag.slice(0, keyTag.length / 2)
 
   // outputs failed if d != MAC(Km; c || S2);
-  if (!equalConstTime(mac, keyTag)) {
+  if (!equalConstTime(mac, halvedmac)) {
     throwNewError('decryptWithPrivateKey: mac does not match - encrypted value may be corrupted')
   }
 
   // uses symmetric encryption to decrypt the message
   // m = E-1(Ke; c)
   const buffer = symmetricDecrypt(useOptions.symmetricCypherType, iv, encryptionKey, cipherText)
-  return buffer.toString()
+  return buffer.toString('utf8')
 }
 
 /** Signs a string (utf8) using the private key (hex string) and returns a signature (hex string) */

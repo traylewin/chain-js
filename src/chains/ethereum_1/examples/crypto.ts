@@ -54,6 +54,7 @@ async function run() {
   const publicKey3 = toEthereumPublicKey(
     '0x93dba0cc5c6e72c138a8a4008f520480cb49b90b0b513beab8b8a1b7f702bda50135135088e1389e4d17470e4a1f8f12de1ae1e7ecfe237a87e9bcf2d78dfdde',
   )
+  console.log('UNCOMPRESSED: ', uncompressPublicKey(publicKey3))
   const privateKey3 = toEthereumPrivateKey('0xa0da3da38055e1a092bae2b7e18c26445feeab870d8ad8231c34275ebe3129b5')
 
   // asymmetric encrypt/decrypt with a SINGLE publicKey/privateKey
