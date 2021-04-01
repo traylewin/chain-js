@@ -71,3 +71,9 @@ export type AsymmetricEncryptedData = {
   mac: string
   scheme?: Scheme
 }
+
+export type GenerateCipherHash = (
+  sharedSecret: Buffer | Uint8Array,
+  s1: Buffer,
+  ephemKeyBuffer: Buffer,
+) => { cipher: Buffer; mac: Buffer }

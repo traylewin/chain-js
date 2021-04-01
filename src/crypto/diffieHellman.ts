@@ -17,7 +17,6 @@ export function generateEphemPublicKeyAndSharedSecretType1(
   const ecdh = crypto.createECDH(curveType)
   const encodedEphemPublicKey = ecdh.generateKeys(null, keyFormat)
   const sharedSecret = ecdh.computeSecret(publicKey)
-  console.log('SHARED SECRET: ', sharedSecret)
   return { ephemPublicKey: encodedEphemPublicKey, sharedSecret }
 }
 
@@ -27,9 +26,9 @@ export function generateSharedSecretType1(
   secretKey: NodeJS.ArrayBufferView,
   curveType: EciesCurveType,
 ) {
-  // if ((publicKey as Buffer).length !== 65) {
-  //   throwNewError('generateSharedSecretType1: publicKey buffer must be 65 bytes')
-  // }
+  if (!((publicKey as Buffer).length === 65 || (publicKey as Buffer).length === 33)) {
+    throwNewError('generateSharedSecretType1: publicKey buffer must be 65 or 33 (compressed) bytes')
+  }
   const ecdh = crypto.createECDH(curveType)
   ecdh.setPrivateKey(secretKey)
   const sharedSecret = ecdh.computeSecret(publicKey)
