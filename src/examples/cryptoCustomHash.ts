@@ -11,7 +11,7 @@ import { Asymmetric } from '../crypto'
 
 require('dotenv').config()
 
-function customHash( sharedSecret: Buffer | Uint8Array,
+function customHashGenerate( sharedSecret: Buffer | Uint8Array,
   s1: Buffer,
   ephemKeyBuffer: Buffer ) {
 
@@ -48,7 +48,7 @@ async function run() {
     keyFormat: 'compressed',
     s1: 'ore1rngq1jyx',
   }   
-  const encryptResult = encryptWithPublicKey(publicWrappingKey, toEncrypt, options, customHash)
+  const encryptResult = encryptWithPublicKey(publicWrappingKey, toEncrypt, options, customHashGenerate)
 
   const {ephemPublicKey, ciphertext, mac} = encryptResult
 
@@ -57,7 +57,7 @@ async function run() {
   console.log('encrypted payload:', payload)
   console.log('encrypted payload:', encryptResult)
 
-  const decryptedPayload = await decryptWithPrivateKey(encryptResult, '18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725', options, customHash)
+  const decryptedPayload = await decryptWithPrivateKey(encryptResult, '18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725', options, customHashGenerate)
   console.log('decrypted payload:', decryptedPayload)
 }
 
