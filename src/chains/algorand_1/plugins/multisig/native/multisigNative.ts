@@ -6,7 +6,7 @@ import {
   isAString,
   isNullOrEmpty,
   uint8ArraysAreEqual,
-} from '../../../../helpers'
+} from '../../../../../helpers'
 import {
   AlgorandAddress,
   AlgorandMultiSignatureMsigStruct,
@@ -21,8 +21,8 @@ import {
   AlgorandTxActionSdkEncoded,
   AlgorandTxSignResults,
   AlgorandTxEncodedForChain,
-} from '../../models'
-import { getAlgorandPublicKeyFromPrivateKey, verifySignedWithPublicKey } from '../../algoCrypto'
+} from '../../../models'
+import { getAlgorandPublicKeyFromPrivateKey, verifySignedWithPublicKey } from '../../../algoCrypto'
 import {
   assertValidSignatures,
   getPublicKeyForAddress,
@@ -35,10 +35,10 @@ import {
   toPublicKeyFromAddress,
   toRawTransactionFromSignResults,
   toAlgorandEntityName,
-} from '../../helpers'
-import { throwNewError } from '../../../../errors'
+} from '../../../helpers'
+import { throwNewError } from '../../../../../errors'
 import { AlgorandMultisigPlugin, AlgorandMultisigPluginInput } from '../algorandMultisigPlugin'
-import { AlgorandActionHelper } from '../../algoAction'
+import { AlgorandActionHelper } from '../../../algoAction'
 import { AlgorandNativeMultisigOptions } from './models'
 import { determineMultiSigAddress } from './helpers'
 
@@ -94,6 +94,8 @@ export class AlgorandMultisigNativePlugin implements AlgorandMultisigPlugin {
   get algoSdkTransaction() {
     return new AlgoTransactionClass(this._actionHelper.actionEncodedForSdk)
   }
+
+  requiresTransaction = false
 
   /** Throws if no raw transaction body */
   private assertHasRaw(): void {

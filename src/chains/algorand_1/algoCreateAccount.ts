@@ -12,7 +12,7 @@ import { AlgorandChainState } from './algoChainState'
 import { generateNewAccountKeysAndEncryptPrivateKeys } from './algoCrypto'
 import { isValidAlgorandPublicKey, toAddressFromPublicKey, toAlgorandEntityName } from './helpers'
 import { AlgorandMultisigPlugin } from './plugins/algorandMultisigPlugin'
-import { setMultisigPlugin } from './helpers/plugin'
+import { setMultisigPlugin } from './plugins/multisig/helpers'
 
 /** Helper class to compose a transction for creating a new chain account
  *  Handles native accounts

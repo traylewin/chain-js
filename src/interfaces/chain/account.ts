@@ -1,4 +1,4 @@
-import { ChainEntityName, PublicKey } from '../models'
+import { ChainEntityName, PublicKey } from '../../models'
 
 /**
  * The Account interface declares the operations that all concrete (chain)account classes must implement

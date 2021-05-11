@@ -1,7 +1,7 @@
-import { isNullOrEmpty } from '../../../../helpers'
-import { throwNewError } from '../../../../errors'
-import { isNullOrEmptyEthereumValue, toEthereumEntityName } from '../../helpers'
-import { EthereumAddress, EthereumEntityName, EthereumPrivateKey, EthereumTransactionAction } from '../../models'
+import { isNullOrEmpty } from '../../../../../helpers'
+import { throwNewError } from '../../../../../errors'
+import { isNullOrEmptyEthereumValue, toEthereumEntityName } from '../../../helpers'
+import { EthereumAddress, EthereumEntityName, EthereumPrivateKey, EthereumTransactionAction } from '../../../models'
 import { EthereumMultisigPlugin, EthereumMultisigPluginInput } from '../ethereumMultisigPlugin'
 import {
   approveSafeTransactionHash,
@@ -199,11 +199,6 @@ export class GnosisSafeMultisigPlugin implements EthereumMultisigPlugin {
       signResults.push(result)
     })
     this._signatures = signResults
-  }
-
-  /** extract 'from' address from various action types and confirm it matches multisig options */
-  public assertMultisigFromMatchesOptions(): void {
-    throwNewError('Not supperted')
   }
 
   get accountName(): EthereumEntityName {

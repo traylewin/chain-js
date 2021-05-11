@@ -40,8 +40,8 @@ import {
   toWeiString,
 } from './helpers'
 import { EthereumActionHelper } from './ethAction'
-import { EthereumMultisigPlugin } from './plugins/ethereumMultisigPlugin'
-import { setMultisigPlugin } from './helpers/plugin'
+import { EthereumMultisigPlugin } from './plugins/multisig/ethereumMultisigPlugin'
+import { setMultisigPlugin } from './plugins/multisig/helpers'
 
 export class EthereumTransaction implements Transaction {
   private _actionHelper: EthereumActionHelper
@@ -57,6 +57,12 @@ export class EthereumTransaction implements Transaction {
 
   /** Transaction object (using ethereumjs-tx library) */
   private _ethereumJsTx: EthereumJsTx
+
+  // TODO: replace _ethereumJsTx with getter
+  get _ethereumJsTx(): EthereumJsTx {
+    // create _ethereumJsTx from this._actionHelper
+    return createEthTxClassFromActioHelper(this._actionHelper)
+  }
 
   private _executionPriority: TxExecutionPriority
 
@@ -202,14 +208,18 @@ export class EthereumTransaction implements Transaction {
     this.updateEthTxFromAction()
   }
 
-  private get multisigRawTransactionWithOptions() {
+  /** Merge raw transaction from multisig raw - replacing gas and other tx options
+   *  e.g. gas is calculated in actiionHelper in this tx but multisig actionHelper might override */
+
+  // TODO: Move to rawTransaction() - use like algorand pattern
+  private get multisigRawTransactionWithOverridedOptions() {
     return { ...this._actionHelper.raw, ...this.multisigPlugin.rawTransaction }
   }
 
   /** update locally cached EthereumJsTx from action helper data */
   updateEthTxFromAction() {
     const trxOptions = this.getOptionsForEthereumJsTx()
-    const rawAction = this.isMultisig ? this.multisigRawTransactionWithOptions : this._actionHelper.raw
+    const rawAction = this.isMultisig ? this.multisigRawTransactionWithOverridedOptions : this._actionHelper.raw
     this._ethereumJsTx = new EthereumJsTx(rawAction, trxOptions)
     this.setSignBuffer()
   }
@@ -324,6 +334,7 @@ export class EthereumTransaction implements Transaction {
     if (this.isMultisig) {
       this.multisigPlugin.validate()
     } else {
+      // NOTE: for multisig, we dont yet have this._ethereumJsTx, so we delegate this check to it's validate fn
       const { gasPrice, gasLimit } = this._ethereumJsTx
       if (isNullOrEmptyEthereumValue(gasPrice) || isNullOrEmptyEthereumValue(gasLimit)) {
         throwNewError(
@@ -426,7 +437,7 @@ export class EthereumTransaction implements Transaction {
       return isSameEthHexValue(this.signedByAddress, this.action?.from)
     }
     if (this.isMultisig) {
-      if (this.multisigPlugin.missingSignatures) return false
+      if (this.multisigPlugin.missingSignatures) return false // TODO: check if this required isNullOrEmpty -- maybe use return !this.multisigPlugin.missingSignatures
     }
     // if no specific action.from, just confirm any signature is attached
     return this.hasAnySignatures
@@ -446,7 +457,7 @@ export class EthereumTransaction implements Transaction {
    *  Throws if action.from is not a valid address */
   public get missingSignatures(): EthereumAddress[] {
     this.assertIsValidated()
-    let missingSignatures = []
+    let missingSignatures
     if (this.isMultisig) {
       missingSignatures = this.multisigPlugin.missingSignatures
     } else {
@@ -455,7 +466,7 @@ export class EthereumTransaction implements Transaction {
       }
       missingSignatures = this.hasAllRequiredSignatures ? null : [this.requiredAuthorization] // if no values, return null instead of empty array
     }
-    return missingSignatures
+    return missingSignatures || []
   }
 
   // Fees
@@ -635,6 +646,8 @@ export class EthereumTransaction implements Transaction {
       await this.multisigPlugin.sign(missingPrivates)
       multisigMissingSignatures = this.multisigPlugin?.missingSignatures
     }
+
+    // TOOD: have seperate block for isMutliSig - with clear comments on why we are adding a sig even though we have enough already
     if (isNullOrEmpty(multisigMissingSignatures)) {
       this.updateEthTxFromAction()
       const privateKey = privateKeys[0]

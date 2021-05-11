@@ -1,11 +1,10 @@
 import { Transaction } from '../transaction'
 import { ChainEntityName, MultisigOptions, PrivateKey, Signature } from '../../models'
 
+// TOOD: Add clear comments (and update existing comments)
 export interface MultisigPlugin {
-  // TRANSACTION
+  // ----- TRANSACTION Members
   multisigOptions: MultisigOptions
-  /** Chain-specific and time-sensitive transaction header */
-  multisigOptionsFromRaw: MultisigOptions
   /** Raw transaction body
    *  Note: Set via prepareToBeSigned() or setFromRaw() */
   rawTransaction: any
@@ -22,14 +21,18 @@ export interface MultisigPlugin {
   addSignatures(signature: Signature[]): void
 
   prepareToBeSigned(rawTransaction: any): Promise<void>
-
   /** Sign the transaction body with private key(s) and add to attached signatures */
   sign(privateKeys: PrivateKey[]): Promise<void>
 
-  // CREATEACCOUNT
+  validate(): void
+
+  // ----- CREATE ACCOUNT Members
+
   accountName: ChainEntityName
 
   transaction: Transaction
+
+  requiresTransaction: boolean
 
   generateKeysIfNeeded(): Promise<void>
 }
