@@ -6,8 +6,8 @@ export type EthereumMultisigRawTransaction = EthereumTransactionAction
 
 export type EthereumGnosisSafeMultisigOptions = {
   pluginOptions: {
-    nonce?: number
-    chainUrl: string
+    nonce?: number // passedIn
+    chainUrl: string // should default to chainState
     multisigAddress?: EthereumAddress
     gnosisSafeMasterAddress?: EthereumAddress
     proxyFactoryAddress?: EthereumAddress

@@ -2,7 +2,7 @@ import { isNullOrEmpty } from '../../../../../helpers'
 import { throwNewError } from '../../../../../errors'
 import { isNullOrEmptyEthereumValue, toEthereumEntityName } from '../../../helpers'
 import { EthereumAddress, EthereumEntityName, EthereumPrivateKey, EthereumTransactionAction } from '../../../models'
-import { EthereumMultisigPlugin, EthereumMultisigPluginInput } from '../ethereumMultisigPlugin'
+import { EthereumMultisigPlugin, EthereumMultisigPluginOptions } from '../ethereumMultisigPlugin'
 import {
   approveSafeTransactionHash,
   getCreateProxyAddressAndTransaction,
@@ -19,8 +19,30 @@ import {
   GnosisSafeSignature,
   GnosisSafeTransaction,
 } from './models'
+import { PluginType, Plugin } from '../../../../../interfaces/plugin'
 
-export class GnosisSafeMultisigPlugin implements EthereumMultisigPlugin {
+// export class Plugin {
+//   /** Plugin name */
+//   public name: string
+
+//   /** Plugin type */
+//   public type: PluginType
+
+//   /** Plugin options */
+//   private _options: any
+
+//   /** Chainstate - will be set automatically when plugin installed - do not set this */
+//   public chainState: any
+
+//   constructor(options: any) {
+//     this._options = options
+//   }
+
+//   /** Initializes plugin using options */
+//   init(options: any) {} // eslint-disable-line @typescript-eslint/no-unused-vars
+// }
+
+export class GnosisSafeMultisigPlugin extends Plugin implements EthereumMultisigPlugin {
   private _multisigOptions: EthereumGnosisSafeMultisigOptions
 
   private _multisigAddress: EthereumAddress
@@ -37,10 +59,20 @@ export class GnosisSafeMultisigPlugin implements EthereumMultisigPlugin {
 
   public requiresTransaction = true
 
-  constructor(input: EthereumMultisigPluginInput) {
-    const { multisigOptions } = input
+  constructor(options: EthereumMultisigPluginOptions) {
+    super(options)
+    const { multisigOptions } = options
     this._multisigOptions = multisigOptions
     this._multisigAddress = multisigOptions?.pluginOptions?.multisigAddress
+  }
+
+  public name = 'Gnosis V1 Multisig Plugin'
+
+  public type = PluginType.MultiSig
+
+  // run initialization steps
+  async init(options: EthereumMultisigPluginOptions) {
+    super.init(options)
   }
 
   get multisigOptions(): EthereumGnosisSafeMultisigOptions {
