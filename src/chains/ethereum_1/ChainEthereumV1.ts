@@ -32,6 +32,7 @@ import {
   EthereumTransactionAction,
   EthUnit,
 } from './models'
+import { Plugin, PluginType } from '../../interfaces/plugin'
 import {
   isValidEthereumDateString,
   isValidEthereumEntityName,
@@ -54,6 +55,8 @@ class ChainEthereumV1 implements Chain {
   private _endpoints: EthereumChainEndpoint[]
 
   private _settings: EthereumChainSettings
+
+  private _plugins: Plugin[]
 
   private _chainState: EthereumChainState
 
@@ -89,6 +92,10 @@ class ChainEthereumV1 implements Chain {
 
   public get endpoints(): EthereumChainEndpoint[] {
     return this._endpoints
+  }
+
+  public get plugins(): Plugin[] {
+    return this._plugins
   }
 
   public composeAction = async (
@@ -296,6 +303,21 @@ class ChainEthereumV1 implements Chain {
     if (!this._chainState?.isConnected) {
       throwNewError('Not connected to chain')
     }
+  }
+
+  /** Install an already iniatlized plugin to this chain connection */
+  public async installPlugin(plugin: Plugin) {
+    this.assertValidPlugin(plugin)
+    // eslint-disable-next-line no-param-reassign
+    plugin.chainState = this._chainState
+    this._plugins.push(plugin)
+  }
+
+  /** rules to check tha plugin is well-formed and supported */
+  private assertValidPlugin(plugin: Plugin) {
+    // check that chainState isnt already set - throw if it is, caller should not set it, it gets set here
+    // e.g. only allow one multisig plugin
+    // throws if any issue
   }
 
   /** Access to underlying web3 sdk
