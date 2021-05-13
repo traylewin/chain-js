@@ -17,6 +17,7 @@ import {
   Signature,
   TransactionOptions,
 } from '../models'
+import { Plugin } from './plugin'
 
 /** The Chain interface declares the operations that all concrete chains must implement */
 export interface Chain {
@@ -151,4 +152,7 @@ export interface Chain {
 
   /** Transforms a chain-specfic error type (e.g. RpcError on EOS) to a 'standard' error type (ChainError) that includes additional chain insights */
   mapChainError(error: Error): ChainError
+
+  /** adds a plugin (instantiated seperately) to the chain */
+  installPlugin(plugin: Plugin): Promise<void>
 }
