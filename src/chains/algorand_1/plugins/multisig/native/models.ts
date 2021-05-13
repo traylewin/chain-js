@@ -1,7 +1,7 @@
 import { AlgorandAddress } from '../../../models'
 
 export type AlgorandNativeMultisigOptions = {
-  pluginOptions: { version: number }
-  weight: number
+  version: number
+  threshold: number
   addrs: AlgorandAddress[]
 }
