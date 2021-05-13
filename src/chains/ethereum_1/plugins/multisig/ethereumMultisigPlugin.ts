@@ -1,9 +1,4 @@
-import { MultisigOptions } from '../../../../models'
 import { MultisigPlugin } from '../../../../interfaces/plugins/multisig'
-
-export interface EthereumMultisigPluginInput {
-  multisigOptions?: MultisigOptions
-}
 
 export interface EthereumMultisigPlugin extends MultisigPlugin {
   // ----- TRANSACTION Members
