@@ -1,5 +1,5 @@
 import * as algosdk from 'algosdk'
-import { Transaction as AlgoTransactionClass } from 'algosdk/src/transaction'
+import { Transaction as AlgoTransactionClass } from 'algosdk'
 import {
   bigIntToUint8Array,
   bufferToString,
@@ -52,11 +52,11 @@ export class AlgorandActionHelper {
    *  .raw property returns action which includes Uint8Arrays (used by chain) */
   constructor(
     params:
-    | AlgorandTxAction
-    | AlgorandTxActionRaw
-    | AlgorandTxActionSdkEncoded
-    | AlgorandRawTransactionStruct
-    | AlgorandRawTransactionMultisigStruct,
+      | AlgorandTxAction
+      | AlgorandTxActionRaw
+      | AlgorandTxActionSdkEncoded
+      | AlgorandRawTransactionStruct
+      | AlgorandRawTransactionMultisigStruct,
   ) {
     this.validateAndApplyParams(params)
   }
@@ -64,11 +64,11 @@ export class AlgorandActionHelper {
   /** applies rules for input params, converts to raw values if needed */
   private validateAndApplyParams(
     actionParam:
-    | AlgorandTxAction
-    | AlgorandTxActionRaw
-    | AlgorandTxActionSdkEncoded
-    | AlgorandRawTransactionStruct
-    | AlgorandRawTransactionMultisigStruct,
+      | AlgorandTxAction
+      | AlgorandTxActionRaw
+      | AlgorandTxActionSdkEncoded
+      | AlgorandRawTransactionStruct
+      | AlgorandRawTransactionMultisigStruct,
   ) {
     if (isNullOrEmpty(actionParam)) {
       throwNewError('Missing action')
@@ -194,7 +194,10 @@ export class AlgorandActionHelper {
   /** Convert raw, compressed format to our decompressed raw format */
   private actionRawCompressedToRaw(action: any) {
     const compressedTxn = action?.txn
-    return AlgoTransactionClass.from_obj_for_encoding(compressedTxn)
+    const rawTrx = AlgoTransactionClass.from_obj_for_encoding(compressedTxn)
+    // CompressedTrx.fee is always flatFee but from_obj_for_encoding only converts fields.
+    rawTrx.flatFee = true
+    return rawTrx
   }
 
   /** Always returns 'none' for Algorand chain */
